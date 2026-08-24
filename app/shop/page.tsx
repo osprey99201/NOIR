@@ -5,7 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { SlidersHorizontal, ArrowUpRight } from "lucide-react";
+import { useWishlistStore } from "@/store/useWishlistStore";
+import { SlidersHorizontal, Heart } from "lucide-react";
 
 const ALL_PRODUCTS = [
   {
@@ -58,17 +59,17 @@ export default function ShopPage() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [sortBy, setSortBy] = useState("featured");
 
-  // Filter products by category
+  const { toggleWishlist, isInWishlist } = useWishlistStore();
+
   const filteredProducts = ALL_PRODUCTS.filter((product) => {
     if (selectedCategory === "All") return true;
     return product.category.toLowerCase() === selectedCategory.toLowerCase();
   });
 
-  // Sort products
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     if (sortBy === "low-to-high") return a.price - b.price;
     if (sortBy === "high-to-low") return b.price - a.price;
-    return 0; // Default sorting
+    return 0;
   });
 
   return (
@@ -76,7 +77,6 @@ export default function ShopPage() {
       <Navbar />
 
       <div className="mx-auto max-w-7xl px-6 pt-32 pb-24 lg:px-8">
-        {/* Header */}
         <div className="border-b border-neutral-800 pb-8">
           <p className="text-xs font-mono uppercase tracking-[0.3em] text-neutral-400">
             Archive Collection
@@ -86,9 +86,7 @@ export default function ShopPage() {
           </h1>
         </div>
 
-        {/* Filter & Sort Bar */}
         <div className="mt-8 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between border-b border-neutral-800 pb-6">
-          {/* Categories */}
           <div className="flex flex-wrap gap-2 sm:gap-4">
             {CATEGORIES.map((cat) => (
               <button
@@ -105,7 +103,6 @@ export default function ShopPage() {
             ))}
           </div>
 
-          {/* Sort Control */}
           <div className="flex items-center gap-2 text-xs font-mono uppercase text-neutral-400">
             <SlidersHorizontal size={14} />
             <span>Sort:</span>
@@ -121,39 +118,49 @@ export default function ShopPage() {
           </div>
         </div>
 
-        {/* Product Grid */}
         <div className="mt-12 grid grid-cols-1 gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
-          {sortedProducts.map((product) => (
-            <Link
-              key={product.id}
-              href={`/product/${product.id}`}
-              className="group relative block cursor-pointer"
-            >
-              <div className="relative aspect-[3/4] w-full overflow-hidden bg-neutral-900">
-                <Image
-                  src={product.image}
-                  alt={product.name}
-                  fill
-                  className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                />
-              </div>
-
-              <div className="mt-4 flex items-start justify-between">
-                <div>
-                  <h3 className="text-sm font-medium tracking-wide text-white group-hover:underline">
-                    {product.name}
-                  </h3>
-                  <p className="mt-1 text-xs text-neutral-400 font-mono uppercase">
-                    {product.category}
-                  </p>
+          {sortedProducts.map((product) => {
+            const isFav = isInWishlist(product.id);
+            return (
+              <div key={product.id} className="group relative block cursor-pointer">
+                <div className="relative aspect-[3/4] w-full overflow-hidden bg-neutral-900">
+                  <Link href={`/product/${product.id}`}>
+                    <Image
+                      src={product.image}
+                      alt={product.name}
+                      fill
+                      className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    />
+                  </Link>
+                  <button
+                    onClick={() => toggleWishlist(product)}
+                    aria-label="Toggle Wishlist"
+                    className="absolute top-3 right-3 z-10 bg-black/60 p-2.5 backdrop-blur-md text-white transition-colors hover:scale-110"
+                  >
+                    <Heart
+                      size={16}
+                      className={isFav ? "fill-red-500 text-red-500" : "text-white"}
+                    />
+                  </button>
                 </div>
-                <p className="text-sm font-mono text-neutral-200">
-                  ${product.price}
-                </p>
+
+                <Link href={`/product/${product.id}`} className="mt-4 flex items-start justify-between block">
+                  <div>
+                    <h3 className="text-sm font-medium tracking-wide text-white group-hover:underline">
+                      {product.name}
+                    </h3>
+                    <p className="mt-1 text-xs text-neutral-400 font-mono uppercase">
+                      {product.category}
+                    </p>
+                  </div>
+                  <p className="text-sm font-mono text-neutral-200">
+                    ${product.price}
+                  </p>
+                </Link>
               </div>
-            </Link>
-          ))}
+            );
+          })}
         </div>
       </div>
 
