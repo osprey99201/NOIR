@@ -1,109 +1,101 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, use } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { client } from "@/sanity/lib/client";
+import { urlFor } from "@/sanity/lib/image";
 import { useCartStore } from "@/store/useCartStore";
 import { useWishlistStore } from "@/store/useWishlistStore";
-import { ArrowLeft, Plus, Minus, Check, ShieldCheck, Truck, Heart } from "lucide-react";
+import { ArrowLeft, Plus, Minus, Check, ShieldCheck, Truck, Heart, Loader2 } from "lucide-react";
 
-const PRODUCTS_DATA = [
-  {
-    id: "1",
-    name: "Oversized Heavyweight Hoodie",
-    category: "Outerwear",
-    price: 120,
-    description:
-      "Engineered from 500GSM custom loopback organic cotton. Features dropped shoulders, a double-layer hood without drawstrings for a clean architectural silhouette, and deep ribbed cuffs.",
-    details: [
-      "100% Organic Heavyweight Cotton",
-      "Pre-shrunk fabric",
-      "Made in Portugal",
-      "Model is 6'1 wearing size L",
-    ],
-    sizes: ["S", "M", "L", "XL"],
-    image:
-      "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?q=80&w=800&auto=format&fit=crop",
-  },
-  {
-    id: "2",
-    name: "Architectural Cargo Pants",
-    category: "Bottoms",
-    price: 160,
-    description:
-      "Constructed from high-density Japanese cotton twill. Features structured knee pleating, deep utilitarian 3D side pockets, and adjustable hem drawstrings for customized taper.",
-    details: [
-      "Japanese Cotton Twill",
-      "YKK Zippers throughout",
-      "Relaxed tapered fit",
-      "Water-resistant coating",
-    ],
-    sizes: ["30", "32", "34", "36"],
-    image:
-      "https://images.unsplash.com/photo-1517445312882-bc9910d016b7?q=80&w=800&auto=format&fit=crop",
-  },
-  {
-    id: "3",
-    name: "Boxy Essential Tee",
-    category: "Tops",
-    price: 65,
-    description:
-      "A refined foundation piece cut from 280GSM combed cotton jersey. Cut wide through the chest with a tight high-rib collar that maintains shape over time.",
-    details: [
-      "280GSM Heavy Cotton Jersey",
-      "Reinforced crew neck collar",
-      "Standard boxy drape",
-      "Custom pigment dyed",
-    ],
-    sizes: ["S", "M", "L", "XL"],
-    image:
-      "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop",
-  },
-  {
-    id: "4",
-    name: "Minimalist Trench Coat",
-    category: "Outerwear",
-    price: 280,
-    description:
-      "A minimalist take on modern outerwear. Tailored with clean concealed button plackets, structured shoulders, and an extended drop hem.",
-    details: [
-      "Wool Blend Twill",
-      "Full interior satin lining",
-      "Internal welt pockets",
-      "Dry clean only",
-    ],
-    sizes: ["S", "M", "L", "XL"],
-    image:
-      "https://images.unsplash.com/photo-1544441893-675973e31985?q=80&w=800&auto=format&fit=crop",
-  },
-];
+interface Product {
+  _id: string;
+  name: string;
+  price: number;
+  category: string;
+  description: string;
+  sizes: string[];
+  image: any;
+}
 
-export default function ProductPage() {
-  const params = useParams();
-  const productId = params.id as string;
+export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params);
+  const productId = resolvedParams.id;
+
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const { addItem } = useCartStore();
   const { toggleWishlist, isInWishlist } = useWishlistStore();
 
-  const product =
-    PRODUCTS_DATA.find((p) => p.id === productId) || PRODUCTS_DATA[0];
-
-  const [selectedSize, setSelectedSize] = useState(product.sizes[0]);
+  const [selectedSize, setSelectedSize] = useState<string>("");
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
 
-  const isFavorited = isInWishlist(product.id);
+  useEffect(() => {
+    async function fetchSingleProduct() {
+      try {
+        setLoading(true);
+        const query = `*[_type == "product" && _id == $id][0]{
+          _id,
+          name,
+          price,
+          category,
+          description,
+          sizes,
+          image
+        }`;
+        const data = await client.fetch(query, { id: productId });
+        setProduct(data);
+        if (data?.sizes?.length > 0) {
+          setSelectedSize(data.sizes[0]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch product from Sanity:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (productId) {
+      fetchSingleProduct();
+    }
+  }, [productId]);
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-neutral-950 text-white flex flex-col justify-center items-center font-mono text-xs uppercase gap-3">
+        <Loader2 className="animate-spin" size={20} />
+        <span>Loading Sanity Product...</span>
+      </main>
+    );
+  }
+
+  if (!product) {
+    return (
+      <main className="min-h-screen bg-neutral-950 text-white">
+        <Navbar />
+        <div className="mx-auto max-w-xl px-6 pt-36 text-center font-mono">
+          <p className="text-xs uppercase text-neutral-400 mb-4">Product Not Found</p>
+          <Link href="/shop" className="underline text-xs uppercase">Return to Shop</Link>
+        </div>
+      </main>
+    );
+  }
+
+  const imageUrl = product.image ? urlFor(product.image).url() : "";
+  const isFavorited = isInWishlist(product._id);
 
   const handleAddToCart = () => {
     addItem({
-      id: product.id,
+      id: product._id,
       name: product.name,
       price: product.price,
-      image: product.image,
-      size: selectedSize,
+      image: imageUrl,
+      size: selectedSize || "Standard",
       quantity: quantity,
     });
     setAdded(true);
@@ -125,14 +117,16 @@ export default function ProductPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-start">
           <div className="relative aspect-[3/4] w-full overflow-hidden bg-neutral-900 border border-neutral-800">
-            <Image
-              src={product.image}
-              alt={product.name}
-              fill
-              priority
-              className="object-cover object-center"
-              sizes="(max-width: 1024px) 100vw, 50vw"
-            />
+            {imageUrl && (
+              <Image
+                src={imageUrl}
+                alt={product.name}
+                fill
+                priority
+                className="object-cover object-center"
+                sizes="(max-width: 1024px) 100vw, 50vw"
+              />
+            )}
           </div>
 
           <div className="flex flex-col">
@@ -147,32 +141,31 @@ export default function ProductPage() {
             </p>
 
             <p className="mt-6 text-sm text-neutral-400 leading-relaxed font-light">
-              {product.description}
+              {product.description || "No description provided."}
             </p>
 
-            <div className="mt-8">
-              <div className="flex justify-between items-center text-xs font-mono uppercase text-neutral-400 mb-3">
-                <span>Select Size</span>
-                <span className="underline cursor-pointer hover:text-white">
-                  Size Guide
-                </span>
+            {product.sizes && product.sizes.length > 0 && (
+              <div className="mt-8">
+                <div className="flex justify-between items-center text-xs font-mono uppercase text-neutral-400 mb-3">
+                  <span>Select Size</span>
+                </div>
+                <div className="grid grid-cols-4 gap-3">
+                  {product.sizes.map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => setSelectedSize(size)}
+                      className={`py-3 text-xs font-mono uppercase border transition-all ${
+                        selectedSize === size
+                          ? "border-white bg-white text-black font-bold"
+                          : "border-neutral-800 text-neutral-300 hover:border-neutral-600"
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="grid grid-cols-4 gap-3">
-                {product.sizes.map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => setSelectedSize(size)}
-                    className={`py-3 text-xs font-mono uppercase border transition-all ${
-                      selectedSize === size
-                        ? "border-white bg-white text-black font-bold"
-                        : "border-neutral-800 text-neutral-300 hover:border-neutral-600"
-                    }`}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-            </div>
+            )}
 
             <div className="mt-6">
               <p className="text-xs font-mono uppercase text-neutral-400 mb-3">
@@ -197,7 +190,6 @@ export default function ProductPage() {
               </div>
             </div>
 
-            {/* Action Row: Add to Bag + Wishlist Button */}
             <div className="mt-8 flex gap-3">
               <button
                 onClick={handleAddToCart}
@@ -222,10 +214,10 @@ export default function ProductPage() {
               <button
                 onClick={() =>
                   toggleWishlist({
-                    id: product.id,
+                    id: product._id,
                     name: product.name,
                     price: product.price,
-                    image: product.image,
+                    image: imageUrl,
                     category: product.category,
                   })
                 }
@@ -240,24 +232,10 @@ export default function ProductPage() {
               </button>
             </div>
 
-            <div className="mt-12 border-t border-neutral-800 pt-8 space-y-4">
-              <h3 className="text-xs font-mono uppercase tracking-widest text-neutral-400">
-                Specifications & Fit
-              </h3>
-              <ul className="space-y-2 text-xs text-neutral-300 font-mono">
-                {product.details.map((detail, idx) => (
-                  <li key={idx} className="flex items-center gap-2">
-                    <span className="h-1 w-1 bg-white rounded-full" />
-                    {detail}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="mt-8 grid grid-cols-2 gap-4 border-t border-neutral-800 pt-8 text-xs text-neutral-400">
+            <div className="mt-12 grid grid-cols-2 gap-4 border-t border-neutral-800 pt-8 text-xs text-neutral-400">
               <div className="flex items-center gap-2">
                 <Truck size={16} className="text-neutral-300" />
-                <span>Express Worldwide Delivery</span>
+                <span>Express Worldwide Shipping</span>
               </div>
               <div className="flex items-center gap-2">
                 <ShieldCheck size={16} className="text-neutral-300" />
