@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import CartDrawer from "@/components/CartDrawer";
+import SearchModal from "@/components/SearchModal";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "NOIR ARCHIVE",
-  description: "Refined architectural essentials",
+  description: "Minimalist E-Commerce Store",
 };
 
 export default function RootLayout({
@@ -20,6 +21,7 @@ export default function RootLayout({
       <body className={inter.className}>
         {children}
         <CartDrawer />
+        <SearchModal />
       </body>
     </html>
   );
